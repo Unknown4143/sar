@@ -1,349 +1,188 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 void main() {
-  runApp(SARDisasterApp());
+  runApp(const SARDisasterApp());
 }
 
 class SARDisasterApp extends StatelessWidget {
+  const SARDisasterApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'SAR Safe Route Finder',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        primarySwatch: Colors.blue,
-        scaffoldBackgroundColor: Color(0xFF0F172A),
-      ),
-      home: HomePage(),
+      theme: ThemeData.dark(),
+      home: const HomePage(),
     );
   }
 }
 
 class HomePage extends StatefulWidget {
+  const HomePage({super.key});
+
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  String selectedFrequency = 'L-Band';
-  String selectedPolarization = 'Multi-Polarization (HH+HV+VV)';
-  String selectedAnalysisMode = 'Multi-frequency Analysis';
+  String frequency = 'L-Band';
+  String polarization = 'Multi-Polarization (HH+HV+VV)';
+  String analysisMode = 'Multi-frequency Analysis';
   int selectedTab = 0;
 
+  GoogleMapController? _mapController;
+
+  /// ---------------- AI ANALYSIS FLOW ----------------
+  void runAIAnalysis() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const _LoadingDialog(),
+    );
+
+    await Future.delayed(const Duration(seconds: 2));
+
+    Navigator.pop(context);
+
+    showDialog(
+      context: context,
+      builder: (_) => const _ResultDialog(),
+    );
+  }
+
+  void navigatePressed() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Navigation Started (Demo)')),
+    );
+  }
+
+  /// ---------------- UI ----------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
+            colors: [Color(0xFF0F172A), Color(0xFF1E3A8A)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0F172A),
-              Color(0xFF1E3A8A),
-              Color(0xFF0F172A),
-            ],
           ),
         ),
         child: Column(
           children: [
-            _buildHeader(),
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  if (constraints.maxWidth > 1024) {
-                    return _buildDesktopLayout();
-                  } else {
-                    return _buildMobileLayout();
-                  }
-                },
-              ),
-            ),
+            _header(),
+            Expanded(child: _content()),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeader() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.3),
-        border: Border(
-          bottom: BorderSide(
-            color: Colors.blue.withOpacity(0.3),
-            width: 1,
-          ),
-        ),
-      ),
-      padding: EdgeInsets.all(16),
-      child: SafeArea(
-        bottom: false,
+  Widget _header() {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
+          children: const [
+            Text('SAR Safe Route Finder',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             Row(
               children: [
-                Container(
-                  padding: EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.blue,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(Icons.satellite_alt, size: 24),
-                ),
-                SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'SAR Safe Route Finder',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      'NASA Space Apps Challenge',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.blue,
-                      ),
-                    ),
-                  ],
-                ),
+                Icon(Icons.circle, color: Colors.green, size: 10),
+                SizedBox(width: 6),
+                Text('Live', style: TextStyle(color: Colors.green)),
               ],
-            ),
-            Row(
-              children: [
-                Icon(Icons.circle, color: Colors.green, size: 12),
-                SizedBox(width: 4),
-                Text(
-                  'Live',
-                  style: TextStyle(fontSize: 14, color: Colors.green),
-                ),
-              ],
-            ),
+            )
           ],
         ),
       ),
     );
   }
 
-  Widget _buildDesktopLayout() {
-    return Padding(
-      padding: EdgeInsets.all(16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 350,
-            child: _buildControlPanel(),
-          ),
-          SizedBox(width: 16),
-          Expanded(
-            child: _buildMapView(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMobileLayout() {
+  Widget _content() {
     return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          _buildControlPanel(),
-          SizedBox(height: 16),
-          SizedBox(
-            height: 500,
-            child: _buildMapView(),
-          ),
+          _sarConfig(),
+          const SizedBox(height: 16),
+          _hazards(),
+          const SizedBox(height: 16),
+          _routes(),
+          const SizedBox(height: 16),
+          _mapSection(),
         ],
       ),
     );
   }
 
-  Widget _buildControlPanel() {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          _buildSARConfiguration(),
-          SizedBox(height: 16),
-          _buildHazardAlerts(),
-          SizedBox(height: 16),
-          _buildSafeRoutes(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSARConfiguration() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.blue.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      padding: EdgeInsets.all(16),
+  /// ---------------- SAR CONFIG ----------------
+  Widget _sarConfig() {
+    return _card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Text('SAR Configuration',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+
+          /// Frequency
+          const Text('Frequency Band'),
+          const SizedBox(height: 8),
           Row(
             children: [
-              Icon(Icons.radio, color: Colors.blue, size: 20),
-              SizedBox(width: 8),
-              Text(
-                'SAR Configuration',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
+              _freqBtn('L-Band'),
+              _freqBtn('C-Band'),
+              _freqBtn('X-Band'),
             ],
           ),
-          SizedBox(height: 16),
-          Text(
-            'Frequency Band',
-            style: TextStyle(fontSize: 12, color: Colors.blue),
-          ),
-          SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: _buildFrequencyButton('L-Band'),
-              ),
-              SizedBox(width: 8),
-              Expanded(
-                child: _buildFrequencyButton('C-Band'),
-              ),
-              SizedBox(width: 8),
-              Expanded(
-                child: _buildFrequencyButton('X-Band'),
-              ),
+
+          const SizedBox(height: 16),
+
+          /// Polarization
+          const Text('Polarization'),
+          const SizedBox(height: 8),
+          _dropdown(
+            polarization,
+            [
+              'Multi-Polarization (HH+HV+VV)',
+              'HH - Horizontal',
+              'VV - Vertical',
+              'HV - Cross-pol',
             ],
+                (v) => setState(() => polarization = v),
           ),
-          SizedBox(height: 16),
-          Text(
-            'Polarization',
-            style: TextStyle(fontSize: 12, color: Colors.blue),
+
+          const SizedBox(height: 16),
+
+          /// AI Mode
+          const Text('AI Analysis Mode'),
+          const SizedBox(height: 8),
+          _dropdown(
+            analysisMode,
+            [
+              'Multi-frequency Analysis',
+              'Flood Detection',
+              'Landslide Risk',
+              'Structural Damage',
+            ],
+                (v) => setState(() => analysisMode = v),
           ),
-          SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: Color(0xFF1E293B),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: Colors.blue.withOpacity(0.3),
-              ),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: selectedPolarization,
-                isExpanded: true,
-                padding: EdgeInsets.symmetric(horizontal: 12),
-                dropdownColor: Color(0xFF1E293B),
-                items: [
-                  DropdownMenuItem(
-                    value: 'Multi-Polarization (HH+HV+VV)',
-                    child: Text('Multi-Polarization (HH+HV+VV)'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'HH - Horizontal',
-                    child: Text('HH - Horizontal'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'VV - Vertical',
-                    child: Text('VV - Vertical'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'HV - Cross-pol',
-                    child: Text('HV - Cross-pol'),
-                  ),
-                ],
-                onChanged: (value) {
-                  setState(() {
-                    selectedPolarization = value!;
-                  });
-                },
-              ),
-            ),
-          ),
-          SizedBox(height: 16),
-          Text(
-            'AI Analysis Mode',
-            style: TextStyle(fontSize: 12, color: Colors.blue),
-          ),
-          SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: Color(0xFF1E293B),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: Colors.blue.withOpacity(0.3),
-              ),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: selectedAnalysisMode,
-                isExpanded: true,
-                padding: EdgeInsets.symmetric(horizontal: 12),
-                dropdownColor: Color(0xFF1E293B),
-                items: [
-                  DropdownMenuItem(
-                    value: 'Multi-frequency Analysis',
-                    child: Text('Multi-frequency Analysis'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'Flood Detection',
-                    child: Text('Flood Detection'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'Landslide Risk',
-                    child: Text('Landslide Risk'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'Structural Damage',
-                    child: Text('Structural Damage'),
-                  ),
-                ],
-                onChanged: (value) {
-                  setState(() {
-                    selectedAnalysisMode = value!;
-                  });
-                },
-              ),
-            ),
-          ),
-          SizedBox(height: 16),
+
+          const SizedBox(height: 16),
+
+          /// Run AI
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Running AI Analysis...'),
-                    backgroundColor: Colors.blue,
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                padding: EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.flash_on, size: 18),
-                  SizedBox(width: 8),
-                  Text('Run AI Analysis', style: TextStyle(fontWeight: FontWeight.bold)),
-                ],
-              ),
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.flash_on),
+              label: const Text('Run AI Analysis'),
+              onPressed: runAIAnalysis,
             ),
           ),
         ],
@@ -351,402 +190,257 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildFrequencyButton(String label) {
-    final isSelected = selectedFrequency == label;
-    return ElevatedButton(
-      onPressed: () {
-        setState(() {
-          selectedFrequency = label;
-        });
-      },
-      style: ElevatedButton.styleFrom(
-        backgroundColor: isSelected ? Colors.blue : Color(0xFF334155),
-        padding: EdgeInsets.symmetric(vertical: 8),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(6),
-        ),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-      ),
-    );
-  }
-
-  Widget _buildHazardAlerts() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.red.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      padding: EdgeInsets.all(16),
+  /// ---------------- HAZARDS ----------------
+  Widget _hazards() {
+    return _card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.warning_amber, color: Colors.red, size: 20),
-              SizedBox(width: 8),
-              Text(
-                'Active Hazards',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
+        children: const [
+          Text('Active Hazards',
+              style: TextStyle(fontWeight: FontWeight.bold)),
           SizedBox(height: 12),
-          _buildHazardCard(
-            'Flood Zone Detected',
-            'Northeast sector - 2.3km radius',
-            Colors.red,
+          _Hazard(
+            title: 'Flood Zone Detected',
+            sub: 'Northeast sector - 2.3km radius',
+            color: Colors.red,
           ),
           SizedBox(height: 8),
-          _buildHazardCard(
-            'Unstable Terrain',
-            'Western ridge - moderate risk',
-            Colors.orange,
+          _Hazard(
+            title: 'Unstable Terrain',
+            sub: 'Western ridge - moderate risk',
+            color: Colors.orange,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildHazardCard(String title, String subtitle, Color color) {
+  /// ---------------- ROUTES ----------------
+  Widget _routes() {
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: const [
+          Text('Recommended Routes',
+              style: TextStyle(fontWeight: FontWeight.bold)),
+          SizedBox(height: 12),
+          _RouteCard(
+            title: 'Route A',
+            sub: 'Via Southern Bypass - 4.2km',
+            badge: 'Safe',
+            color: Colors.green,
+          ),
+          SizedBox(height: 8),
+          _RouteCard(
+            title: 'Route B',
+            sub: 'Via Eastern Highway - 5.8km',
+            badge: 'Optimal',
+            color: Colors.blue,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// ---------------- MAP ----------------
+  Widget _mapSection() {
+    return _card(
+      child: Column(
+        children: [
+          Row(
+            children: [
+              _tab('SAR Map', 0),
+              _tab('Layers', 1),
+              const Spacer(),
+              ElevatedButton.icon(
+                onPressed: navigatePressed,
+                icon: const Icon(Icons.navigation),
+                label: const Text('Navigate'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 300,
+            child: GoogleMap(
+              initialCameraPosition: const CameraPosition(
+                target: LatLng(20.5937, 78.9629),
+                zoom: 6,
+              ),
+              onMapCreated: (c) => _mapController = c,
+              zoomGesturesEnabled: true,
+              scrollGesturesEnabled: true,
+              rotateGesturesEnabled: true,
+              tiltGesturesEnabled: true,
+              gestureRecognizers: {
+                Factory<OneSequenceGestureRecognizer>(
+                      () => EagerGestureRecognizer(),
+                ),
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// ---------------- HELPERS ----------------
+  Widget _freqBtn(String v) => Expanded(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor:
+          frequency == v ? Colors.blue : Colors.grey.shade800,
+        ),
+        onPressed: () => setState(() => frequency = v),
+        child: Text(v),
+      ),
+    ),
+  );
+
+  Widget _dropdown(String value, List<String> items, Function(String) onChanged) {
+    return DropdownButtonFormField<String>(
+      value: value,
+      dropdownColor: const Color(0xFF1E293B),
+      items: items
+          .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+          .toList(),
+      onChanged: (v) => onChanged(v!),
+    );
+  }
+
+  Widget _tab(String t, int i) => Padding(
+    padding: const EdgeInsets.only(right: 8),
+    child: ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: selectedTab == i
+            ? Colors.blue
+            : Colors.grey.shade800,
+      ),
+      onPressed: () => setState(() => selectedTab = i),
+      child: Text(t),
+    ),
+  );
+
+  Widget _card({required Widget child}) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white.withOpacity(0.1),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: child,
+  );
+}
+
+/// ---------------- DIALOGS ----------------
+class _LoadingDialog extends StatelessWidget {
+  const _LoadingDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return const AlertDialog(
+      backgroundColor: Color(0xFF0F172A),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(height: 16),
+          Text('Analyzing SAR Data...'),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResultDialog extends StatelessWidget {
+  const _ResultDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF0F172A),
+      title: const Text('AI Analysis Complete'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: const [
+          Text('Flood Risk Detected (72%)',
+              style: TextStyle(color: Colors.red)),
+          Text('Landslide Probability: 6%',
+              style: TextStyle(color: Colors.green)),
+          Text('Structural Damage: 69%',
+              style: TextStyle(color: Colors.orange)),
+          SizedBox(height: 8),
+          Text('Suggested Route: Eastern Highway - Avoid',
+              style: TextStyle(color: Colors.red)),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: Navigator.of(context).pop,
+          child: const Text('OK'),
+        )
+      ],
+    );
+  }
+}
+
+/// ---------------- SMALL WIDGETS ----------------
+class _Hazard extends StatelessWidget {
+  final String title, sub;
+  final Color color;
+
+  const _Hazard(
+      {required this.title, required this.sub, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: color.withOpacity(0.2),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: color.withOpacity(0.5),
-          width: 1,
-        ),
       ),
-      padding: EdgeInsets.all(12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title, style: TextStyle(color: color)),
+        Text(sub),
+      ]),
+    );
+  }
+}
+
+class _RouteCard extends StatelessWidget {
+  final String title, sub, badge;
+  final Color color;
+
+  const _RouteCard(
+      {required this.title,
+        required this.sub,
+        required this.badge,
+        required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Row(
         children: [
-          Icon(Icons.warning_amber, color: color, size: 16),
-          SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: color.withOpacity(0.8),
-                  ),
-                ),
+                Text(title, style: TextStyle(color: color)),
+                Text(sub),
               ],
             ),
           ),
+          Chip(label: Text(badge)),
         ],
       ),
-    );
-  }
-
-  Widget _buildSafeRoutes() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.green.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      padding: EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.shield, color: Colors.green, size: 20),
-              SizedBox(width: 8),
-              Text(
-                'Recommended Routes',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          SizedBox(height: 12),
-          _buildRouteCard(
-            'Route A',
-            'Via Southern Bypass - 4.2km',
-            'Safe',
-            Colors.green,
-          ),
-          SizedBox(height: 8),
-          _buildRouteCard(
-            'Route B',
-            'Via Eastern Highway - 5.8km',
-            'Optimal',
-            Colors.blue,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRouteCard(String title, String subtitle, String badge, Color color) {
-    return InkWell(
-      onTap: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Selected $title')),
-        );
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: color.withOpacity(0.4),
-            width: 1,
-          ),
-        ),
-        padding: EdgeInsets.all(12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: color,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                badge,
-                style: TextStyle(fontSize: 12),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMapView() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.blue.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.3),
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
-              ),
-              border: Border(
-                bottom: BorderSide(
-                  color: Colors.blue.withOpacity(0.3),
-                  width: 1,
-                ),
-              ),
-            ),
-            padding: EdgeInsets.all(12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    _buildTabButton('SAR Map', 0),
-                    SizedBox(width: 8),
-                    _buildTabButton('Layers', 1),
-                  ],
-                ),
-                ElevatedButton.icon(
-                  onPressed: () {},
-                  icon: Icon(Icons.navigation, size: 16),
-                  label: Text('Navigate'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0xFF334155),
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF1E293B),
-                    Color(0xFF0F172A),
-                  ],
-                ),
-              ),
-              child: Stack(
-                children: [
-                  Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.map, size: 64, color: Colors.blue),
-                        SizedBox(height: 16),
-                        Text(
-                          'SAR Map View',
-                          style: TextStyle(fontSize: 18),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          'Real-time satellite data visualization',
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Positioned(
-                    top: 16,
-                    left: 16,
-                    child: Container(
-                      padding: EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.6),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: Colors.blue.withOpacity(0.3),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'SAR Coverage',
-                            style: TextStyle(fontSize: 10, color: Colors.blue),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'Region: 25km²',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            'Last Update: 2 min ago',
-                            style: TextStyle(fontSize: 10, color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 16,
-                    right: 16,
-                    child: Container(
-                      padding: EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.6),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: Colors.blue.withOpacity(0.3),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          _buildLegendItem(Colors.red, 'Hazard'),
-                          SizedBox(width: 16),
-                          _buildLegendItem(Colors.green, 'Safe Route'),
-                          SizedBox(width: 16),
-                          _buildLegendItem(Colors.blue, 'Alternative'),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabButton(String label, int index) {
-    final isSelected = selectedTab == index;
-    return ElevatedButton(
-      onPressed: () {
-        setState(() {
-          selectedTab = index;
-        });
-      },
-      style: ElevatedButton.styleFrom(
-        backgroundColor: isSelected ? Colors.blue : Color(0xFF334155),
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-      ),
-    );
-  }
-
-  Widget _buildLegendItem(Color color, String label) {
-    return Row(
-      children: [
-        Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
-        ),
-        SizedBox(width: 8),
-        Text(
-          label,
-          style: TextStyle(fontSize: 12),
-        ),
-      ],
     );
   }
 }
